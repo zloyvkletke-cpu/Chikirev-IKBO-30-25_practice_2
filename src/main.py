@@ -4,7 +4,6 @@ from fetcher import fetch_from_nuget, fetch_from_test_file
 from graph import build_graph, get_load_order
 from visualizer import generate_mermaid, save_to_png
 
-# Константы для этапов (избавляемся от магических чисел 1-5)
 STAGE_1 = 1
 STAGE_2 = 2
 STAGE_3 = 3

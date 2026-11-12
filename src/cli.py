@@ -1,11 +1,10 @@
 import argparse
 
-def parse_args() -> argparse.Namespace:
-    """Парсит аргументы командной строки."""
+def _build_parser() -> argparse.ArgumentParser:
+    """Создает и настраивает парсер аргументов командной строки."""
     parser = argparse.ArgumentParser(
         description="NuGet Dependency Graph Visualizer"
     )
-    
     parser.add_argument(
         "-p", "--package", required=True, 
         help="Имя анализируемого пакета"
@@ -38,7 +37,11 @@ def parse_args() -> argparse.Namespace:
         "--stage", type=int, choices=[1, 2, 3, 4, 5], default=5, 
         help="Этап выполнения"
     )
+    return parser
 
+def parse_args() -> argparse.Namespace:
+    """Парсит аргументы командной строки и проводит валидацию."""
+    parser = _build_parser()
     args = parser.parse_args()
     
     if args.depth < 1:

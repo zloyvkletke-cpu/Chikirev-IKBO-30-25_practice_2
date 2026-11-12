@@ -11,11 +11,31 @@ def fetch_json(url: str) -> Dict[str, Any]:
     req = urllib.request.Request(
         url, headers={'Accept-Encoding': 'gzip'}
     )
-    with urllib.request.urlopen(req, timeout=NETWORK_TIMEOUT) as response:
-        data = response.read()
-        if response.info().get('Content-Encoding') == 'gzip':
+    with urllib.request.urlopen(req, timeout=NETWORK_TIMEOUT) as resp:
+        data = resp.read()
+        if resp.info().get('Content-Encoding') == 'gzip':
             data = gzip.decompress(data)
         return json.loads(data)
+
+def _extract_version(dep_range: str) -> str:
+    """Извлекает минимальную версию из диапазона NuGet."""
+    match = re.search(r'[\[\(]([^,]+)', dep_range)
+    return match.group(1).strip() if match else "1.0.0"
+
+def _parse_dependency_groups(dep_groups: list) -> List[Tuple[str, str]]:
+    """Вспомогательная функция для парсинга групп зависимостей."""
+    dependencies = []
+    for group in dep_groups:
+        if not isinstance(group, dict):
+            continue
+        for dep in group.get("dependencies", []):
+            if isinstance(dep, dict):
+                dep_id = dep.get("id")
+                if not dep_id or dep_id in [d[0] for d in dependencies]:
+                    continue
+                dep_ver = _extract_version(dep.get("range", ""))
+                dependencies.append((dep_id, dep_ver))
+    return dependencies
 
 def fetch_from_nuget(
     base_url: str, package: str, version: str
@@ -29,27 +49,13 @@ def fetch_from_nuget(
         if isinstance(catalog_entry, str):
             catalog_entry = fetch_json(catalog_entry)
             
-        dependencies = []
         dep_groups = catalog_entry.get("dependencyGroups", [])
-        
-        if isinstance(dep_groups, list):
-            for group in dep_groups:
-                if isinstance(group, dict):
-                    for dep in group.get("dependencies", []):
-                        if isinstance(dep, dict):
-                            dep_id = dep.get("id")
-                            dep_range = dep.get("range", "")
-                            
-                            if not dep_id or dep_id in [d[0] for d in dependencies]:
-                                continue
-                            
-                            match = re.search(r'[\[\(]([^,]+)', dep_range)
-                            dep_ver = match.group(1).strip() if match else "1.0.0"
-                            
-                            dependencies.append((dep_id, dep_ver))
-        return dependencies
+        if not isinstance(dep_groups, list):
+            return []
+            
+        return _parse_dependency_groups(dep_groups)
     except Exception as e:
-        print(f"Ошибка получения данных для {package} ({version}): {e}")
+        print(f"Ошибка получения данных {package} ({version}): {e}")
         return []
 
 def fetch_from_test_file(

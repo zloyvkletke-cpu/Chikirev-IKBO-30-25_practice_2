@@ -1,5 +1,18 @@
 from collections import deque
-from typing import Dict, List, Callable, Tuple
+from typing import Dict, List, Callable, Tuple, Set
+
+def _filter_dependencies(
+    raw_deps: List[Tuple[str, str]], 
+    filter_substring: str
+) -> List[Tuple[str, str]]:
+    """Фильтрует зависимости по подстроке и убирает дубликаты."""
+    filtered = []
+    for dep_name, dep_ver in raw_deps:
+        if filter_substring and filter_substring.lower() in dep_name.lower():
+            continue
+        if dep_name not in [d[0] for d in filtered]:
+            filtered.append((dep_name, dep_ver))
+    return filtered
 
 def build_graph(
     root_package: str, 
@@ -11,7 +24,7 @@ def build_graph(
     """Строит граф зависимостей с помощью BFS без рекурсии."""
     graph = {}
     queue = deque([(root_package, root_version, 0)])
-    visited = {root_package}
+    visited: Set[str] = {root_package}
 
     while queue:
         current_pkg, current_ver, current_depth = queue.popleft()
@@ -21,14 +34,7 @@ def build_graph(
             continue
 
         raw_deps = fetch_func(current_pkg, current_ver)
-        
-        filtered_deps = []
-        for dep_name, dep_ver in raw_deps:
-            if filter_substring and filter_substring.lower() in dep_name.lower():
-                continue
-            if dep_name not in [d[0] for d in filtered_deps]:
-                filtered_deps.append((dep_name, dep_ver))
-                
+        filtered_deps = _filter_dependencies(raw_deps, filter_substring)
         graph[current_pkg] = [d[0] for d in filtered_deps]
 
         for dep_name, dep_ver in filtered_deps:
@@ -39,7 +45,7 @@ def build_graph(
     return graph
 
 def get_load_order(graph: Dict[str, List[str]]) -> List[str]:
-    """Топологическая сортировка (без изменений)."""
+    """Топологическая сортировка (алгоритм Кана)."""
     in_degree = {node: 0 for node in graph}
     for node, deps in graph.items():
         for dep in deps:
@@ -47,7 +53,7 @@ def get_load_order(graph: Dict[str, List[str]]) -> List[str]:
                 in_degree[dep] = 0
             in_degree[dep] += 1
 
-    queue = deque([node for node, degree in in_degree.items() if degree == 0])
+    queue = deque([n for n, deg in in_degree.items() if deg == 0])
     order = []
 
     while queue:

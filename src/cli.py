@@ -1,7 +1,6 @@
 import argparse
 
 def _build_parser() -> argparse.ArgumentParser:
-    """Создает и настраивает парсер аргументов командной строки."""
     parser = argparse.ArgumentParser(
         description="NuGet Dependency Graph Visualizer"
     )
